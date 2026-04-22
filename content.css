@@ -1,0 +1,357 @@
+#vs-indicator {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    z-index: 99999;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    letter-spacing: 0.5px;
+    cursor: default;
+    user-select: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: background 0.2s;
+}
+
+#vs-indicator.vs-on {
+    background: #09B1BA;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(9, 177, 186, 0.35);
+}
+
+#vs-indicator.vs-off {
+    background: #374151;
+    color: #9ca3af;
+}
+
+/* ─── Toggle Button (top-right) ─── */
+
+#vsh-toggle {
+    position: fixed !important;
+    bottom: 16px !important;
+    right: 16px !important;
+    z-index: 2147483647 !important;
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 10px !important;
+    border: none !important;
+    background: #0d1117 !important;
+    color: #09B1BA !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
+    transition: background 0.15s, transform 0.15s !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+}
+
+#vsh-toggle:hover {
+    background: #161b22;
+    transform: scale(1.05);
+}
+
+.vsh-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background: #09B1BA;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+/* ─── Panel ─── */
+
+#vsh-panel {
+    position: fixed !important;
+    bottom: 66px !important;
+    right: 16px !important;
+    z-index: 2147483647 !important;
+    width: 320px !important;
+    max-height: calc(100vh - 90px) !important;
+    overflow-y: auto !important;
+    background: #0d1117 !important;
+    border: 1px solid #1e2130 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    color: #e1e4ea;
+    animation: vsh-slide-in 0.15s ease-out;
+}
+
+@keyframes vsh-slide-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.vsh-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid #1e2130;
+}
+
+.vsh-panel-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #f0f2f5;
+}
+
+.vsh-close {
+    background: none;
+    border: none;
+    color: #6b7280;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.vsh-close:hover {
+    color: #e1e4ea;
+}
+
+/* ─── Schedule list ─── */
+
+.vsh-list {
+    padding: 8px;
+}
+
+.vsh-empty {
+    padding: 24px 16px;
+    text-align: center;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.vsh-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    transition: background 0.1s;
+}
+
+.vsh-item:hover {
+    background: #161b22;
+}
+
+.vsh-item.vsh-filled {
+    background: #0a2a2c;
+    border: 1px solid #09B1BA33;
+}
+
+.vsh-item-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.vsh-item-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.vsh-item-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #f0f2f5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vsh-item-meta {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.vsh-fill-btn {
+    flex-shrink: 0;
+    background: #09B1BA;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.vsh-fill-btn:hover {
+    background: #07959d;
+}
+
+.vsh-filled-badge {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #09B1BA;
+    background: #09B1BA1a;
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+
+/* ─── Mark as Listed ─── */
+
+.vsh-listed-section {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.vsh-url-input {
+    flex: 1;
+    min-width: 0;
+    background: #1a1d2e;
+    border: 1px solid #2a2d3e;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    color: #e1e4ea;
+    outline: none;
+}
+
+.vsh-url-input:focus {
+    border-color: #09B1BA;
+}
+
+.vsh-url-input::placeholder {
+    color: #4b5563;
+    font-size: 11px;
+}
+
+.vsh-listed-btn {
+    flex-shrink: 0;
+    background: #1e2130;
+    color: #9ca3af;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+}
+
+.vsh-listed-btn:hover:not(:disabled) {
+    background: #282b40;
+    color: #e1e4ea;
+}
+
+.vsh-listed-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ─── Item Page: Mark as Listed Panel ─── */
+
+#vsh-listed-panel {
+    position: fixed !important;
+    bottom: 16px !important;
+    right: 16px !important;
+    z-index: 2147483647 !important;
+    width: 320px !important;
+    background: #0d1117 !important;
+    border: 1px solid #09B1BA44 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    color: #e1e4ea !important;
+    animation: vsh-slide-in 0.15s ease-out !important;
+    overflow: hidden !important;
+}
+
+.vsh-listed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 8px;
+    border-bottom: 1px solid #1e2130;
+}
+
+.vsh-listed-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #09B1BA;
+}
+
+.vsh-listed-body {
+    padding: 12px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.vsh-listed-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.vsh-listed-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #f0f2f5;
+}
+
+.vsh-mark-listed-btn {
+    width: 100%;
+    background: #09B1BA !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: background 0.15s !important;
+    font-family: inherit !important;
+}
+
+.vsh-mark-listed-btn:hover {
+    background: #07959d !important;
+}
+
+.vsh-listed-success {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #22c55e;
+    padding: 8px 0;
+}
