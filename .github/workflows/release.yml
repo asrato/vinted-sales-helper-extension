@@ -1,0 +1,33 @@
+name: Release Extension
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create config.js for production
+        run: |
+          cat > config.js << 'EOF'
+          var CONFIG = {
+            API_URL: "${{ secrets.API_URL }}",
+            GOOGLE_CLIENT_ID: "${{ secrets.GOOGLE_CLIENT_ID }}",
+            TOKEN_KEY: "vs_token",
+          };
+          EOF
+
+      - name: Zip extension
+        run: zip -r vinted-sales-helper-extension.zip . -x ".git/*" ".github/*" ".gitignore" "config.example.js"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: vinted-sales-helper-extension.zip
+          generate_release_notes: true
