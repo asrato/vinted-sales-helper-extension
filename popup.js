@@ -4,6 +4,11 @@
  */
 
 (function () {
+  // ─── Version from manifest ───
+  var manifest = chrome.runtime.getManifest();
+  var $version = document.getElementById("ext-version");
+  if ($version) $version.textContent = "v" + manifest.version;
+
   // ─── DOM ───
   var $loading = document.getElementById("v-loading");
   var $login = document.getElementById("v-login");
