@@ -137,4 +137,40 @@
 
   // ─── Start ───
   init();
+
+  // ─── Version check ───
+  (function checkForUpdate() {
+    var currentVersion = manifest.version;
+    fetch(
+      "https://api.github.com/repos/asrato/vinted-sales-helper-extension/releases/latest",
+    )
+      .then(function (res) {
+        return res.json();
+      })
+      .then(function (release) {
+        if (!release || !release.tag_name) return;
+        var latest = release.tag_name.replace(/^v/, "");
+        if (latest !== currentVersion && isNewer(latest, currentVersion)) {
+          var $banner = document.getElementById("update-banner");
+          var $newVersion = document.getElementById("update-version");
+          if ($banner && $newVersion) {
+            $newVersion.textContent = "v" + latest;
+            $banner.style.display = "flex";
+          }
+        }
+      })
+      .catch(function () {
+        /* silent */
+      });
+
+    function isNewer(a, b) {
+      var pa = a.split(".").map(Number);
+      var pb = b.split(".").map(Number);
+      for (var i = 0; i < 3; i++) {
+        if ((pa[i] || 0) > (pb[i] || 0)) return true;
+        if ((pa[i] || 0) < (pb[i] || 0)) return false;
+      }
+      return false;
+    }
+  })();
 })();

@@ -2,7 +2,7 @@ name: Release Extension
 
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
 
 jobs:
   release:

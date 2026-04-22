@@ -224,6 +224,49 @@
             font-size: 11px;
             color: #6b7280;
         }
+
+        .update-banner {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #09B1BA15;
+            border: 1px solid #09B1BA33;
+            border-radius: 8px;
+            margin: 0 12px 8px;
+        }
+
+        .update-banner svg {
+            flex-shrink: 0;
+            color: #09B1BA;
+        }
+
+        .update-text {
+            flex: 1;
+            font-size: 12px;
+            color: #e1e4ea;
+            line-height: 1.3;
+        }
+
+        .update-text strong {
+            color: #09B1BA;
+        }
+
+        .update-link {
+            flex-shrink: 0;
+            font-size: 11px;
+            font-weight: 600;
+            color: #09B1BA;
+            text-decoration: none;
+            padding: 4px 10px;
+            border-radius: 6px;
+            background: #09B1BA20;
+            transition: background 0.15s;
+        }
+
+        .update-link:hover {
+            background: #09B1BA33;
+        }
     </style>
 </head>
 
@@ -233,6 +276,19 @@
             <h1><span style="color:#09B1BA">Vinted</span> Sales Helper</h1>
             <span class="version" id="ext-version"></span>
         </header>
+
+        <!-- Update banner -->
+        <div id="update-banner" class="update-banner">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            <span class="update-text">Update available: <strong id="update-version"></strong></span>
+            <a class="update-link" href="https://github.com/asrato/vinted-sales-helper-extension/releases/latest"
+                target="_blank">Download</a>
+        </div>
 
         <!-- Loading -->
         <div id="v-loading" class="view active">
