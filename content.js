@@ -135,6 +135,7 @@
       for (var i = 0; i < schedules.length; i++) {
         var s = schedules[i];
         var isFilled = filledScheduleId === s.id;
+        var cf = parseCustomFields(s);
         html +=
           '<div class="vsh-item' +
           (isFilled ? " vsh-filled" : "") +
@@ -157,6 +158,20 @@
               s.id +
               '">Fill</button>') +
           "</div>";
+
+        // Show custom fields if any
+        if (cf.length > 0) {
+          html += '<div class="vsh-custom-fields">';
+          for (var k = 0; k < cf.length; k++) {
+            html +=
+              '<span class="vsh-cf-tag">' +
+              escHtml(cf[k].name) +
+              ": " +
+              escHtml(cf[k].value) +
+              "</span>";
+          }
+          html += "</div>";
+        }
 
         html += "</div>";
       }
@@ -207,6 +222,19 @@
     renderPanel();
   }
 
+  function parseCustomFields(schedule) {
+    if (!schedule.custom_fields) return [];
+    try {
+      var fields =
+        typeof schedule.custom_fields === "string"
+          ? JSON.parse(schedule.custom_fields)
+          : schedule.custom_fields;
+      return Array.isArray(fields) ? fields : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   function fillVintedForm(schedule) {
     // Title
     var titleEl = findFormField("title");
@@ -221,6 +249,117 @@
       var priceEl = findFormField("price");
       if (priceEl) setInputValue(priceEl, (schedule.price / 100).toFixed(2));
     }
+
+    // Custom fields — try to find matching form fields on the page
+    var customFields = parseCustomFields(schedule);
+    for (var i = 0; i < customFields.length; i++) {
+      var cf = customFields[i];
+      if (!cf.name || !cf.value) continue;
+      var el = findFormFieldByLabel(cf.name);
+      if (el) {
+        console.log("[VSH] Filling custom field", cf.name, "=", cf.value);
+        if (el.tagName === "SELECT") {
+          setSelectValue(el, cf.value);
+        } else {
+          setInputValue(el, cf.value);
+        }
+      } else {
+        console.log(
+          "[VSH] Could not find form field for custom field:",
+          cf.name,
+        );
+      }
+    }
+  }
+
+  /**
+   * Find a form field by its label text. Searches for labels, placeholders,
+   * and nearby text that matches the custom field name.
+   */
+  function findFormFieldByLabel(labelText) {
+    var norm = labelText.toLowerCase().trim();
+
+    // Strategy 1: <label> with matching text that has a 'for' attribute
+    var labels = document.querySelectorAll("label");
+    for (var i = 0; i < labels.length; i++) {
+      var lbl = labels[i];
+      var lblText = (lbl.textContent || "").toLowerCase().trim();
+      if (lblText === norm || lblText.indexOf(norm) !== -1) {
+        // Check 'for' attribute
+        if (lbl.htmlFor) {
+          var target = document.getElementById(lbl.htmlFor);
+          if (target && isVisible(target)) return target;
+        }
+        // Check for input/select/textarea inside the label
+        var inner = lbl.querySelector("input, select, textarea");
+        if (inner && isVisible(inner)) return inner;
+        // Check next sibling or parent's next input
+        var container =
+          lbl.closest("div, fieldset, section") || lbl.parentElement;
+        if (container) {
+          var inp = container.querySelector("input, select, textarea");
+          if (inp && isVisible(inp)) return inp;
+        }
+      }
+    }
+
+    // Strategy 2: input/textarea with matching placeholder
+    var inputs = document.querySelectorAll("input, textarea");
+    for (var j = 0; j < inputs.length; j++) {
+      var ph = (inputs[j].placeholder || "").toLowerCase();
+      if (ph === norm || ph.indexOf(norm) !== -1) {
+        if (isVisible(inputs[j])) return inputs[j];
+      }
+    }
+
+    // Strategy 3: input/textarea/select with matching name or id attribute
+    var nameSelectors = [
+      'input[name*="' + CSS.escape(norm) + '" i]',
+      'select[name*="' + CSS.escape(norm) + '" i]',
+      'textarea[name*="' + CSS.escape(norm) + '" i]',
+      'input[id*="' + CSS.escape(norm) + '" i]',
+      'select[id*="' + CSS.escape(norm) + '" i]',
+    ];
+    for (var k = 0; k < nameSelectors.length; k++) {
+      try {
+        var el = document.querySelector(nameSelectors[k]);
+        if (el && isVisible(el)) return el;
+      } catch (_) {
+        /* invalid selector */
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Set a value on a <select> element by matching option text or value.
+   */
+  function setSelectValue(selectEl, value) {
+    var norm = value.toLowerCase().trim();
+    var options = selectEl.options;
+    for (var i = 0; i < options.length; i++) {
+      var optText = (options[i].text || "").toLowerCase().trim();
+      var optVal = (options[i].value || "").toLowerCase().trim();
+      if (
+        optText === norm ||
+        optVal === norm ||
+        optText.indexOf(norm) !== -1 ||
+        norm.indexOf(optText) !== -1
+      ) {
+        selectEl.value = options[i].value;
+        selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+        selectEl.dispatchEvent(new Event("input", { bubbles: true }));
+        return;
+      }
+    }
+    // Fallback: try setting value directly
+    var nativeSetter = Object.getOwnPropertyDescriptor(
+      HTMLSelectElement.prototype,
+      "value",
+    ).set;
+    nativeSetter.call(selectEl, value);
+    selectEl.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   /**

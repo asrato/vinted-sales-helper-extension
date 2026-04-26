@@ -9,6 +9,25 @@
   var $version = document.getElementById("ext-version");
   if ($version) $version.textContent = "v" + manifest.version;
 
+  // ─── Changelog data ───
+  var CHANGELOG = [
+    {
+      version: "1.1.0",
+      changes: [
+        "Custom fields: auto-fill user-defined fields into Vinted forms",
+        "Schedule panel now shows custom field tags",
+        "What's New notification on extension updates",
+      ],
+    },
+    {
+      version: "1.0.2",
+      changes: [
+        "Mark as Listed from item pages with schedule matching",
+        "Update notification banner in popup",
+      ],
+    },
+  ];
+
   // ─── DOM ───
   var $loading = document.getElementById("v-loading");
   var $login = document.getElementById("v-login");
@@ -137,6 +156,46 @@
 
   // ─── Start ───
   init();
+
+  // ─── What's New ───
+  (function showWhatsNew() {
+    var currentVersion = manifest.version;
+    chrome.storage.local.get("lastSeenVersion", function (data) {
+      var lastSeen = data.lastSeenVersion || "";
+      if (lastSeen === currentVersion) return;
+
+      // Find changelog entry for current version
+      var entry = null;
+      for (var i = 0; i < CHANGELOG.length; i++) {
+        if (CHANGELOG[i].version === currentVersion) {
+          entry = CHANGELOG[i];
+          break;
+        }
+      }
+      if (!entry) return;
+
+      var $whatsNew = document.getElementById("whats-new");
+      var $badge = document.getElementById("whats-new-version-badge");
+      var $list = document.getElementById("whats-new-list");
+      var $dismiss = document.getElementById("whats-new-dismiss");
+      if (!$whatsNew || !$list) return;
+
+      // Populate
+      $badge.textContent = "v" + entry.version;
+      var html = "";
+      for (var j = 0; j < entry.changes.length; j++) {
+        html += "<li>" + entry.changes[j] + "</li>";
+      }
+      $list.innerHTML = html;
+      $whatsNew.style.display = "";
+
+      // Dismiss
+      $dismiss.addEventListener("click", function () {
+        chrome.storage.local.set({ lastSeenVersion: currentVersion });
+        $whatsNew.style.display = "none";
+      });
+    });
+  })();
 
   // ─── Version check ───
   (function checkForUpdate() {

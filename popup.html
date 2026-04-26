@@ -267,6 +267,92 @@
         .update-link:hover {
             background: #09B1BA33;
         }
+
+        /* What's New */
+        .whats-new {
+            background: #1a1d2e;
+            border: 1px solid #2a2d3e;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .whats-new-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #1e2130;
+            cursor: pointer;
+        }
+
+        .whats-new-header:hover {
+            background: #252840;
+        }
+
+        .whats-new-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #09B1BA;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .whats-new-badge {
+            font-size: 9px;
+            font-weight: 700;
+            color: #fff;
+            background: #09B1BA;
+            border-radius: 8px;
+            padding: 1px 6px;
+            text-transform: uppercase;
+        }
+
+        .whats-new-dismiss {
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0 2px;
+        }
+
+        .whats-new-dismiss:hover {
+            color: #e1e4ea;
+        }
+
+        .whats-new-body {
+            padding: 10px 12px;
+        }
+
+        .whats-new-version {
+            font-size: 11px;
+            font-weight: 600;
+            color: #9ca3af;
+            margin-bottom: 6px;
+        }
+
+        .whats-new-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .whats-new-list li {
+            font-size: 11px;
+            color: #e1e4ea;
+            line-height: 1.4;
+            padding: 2px 0 2px 12px;
+            position: relative;
+        }
+
+        .whats-new-list li::before {
+            content: '•';
+            position: absolute;
+            left: 2px;
+            color: #09B1BA;
+        }
     </style>
 </head>
 
@@ -288,6 +374,25 @@
             <span class="update-text">Update available: <strong id="update-version"></strong></span>
             <a class="update-link" href="https://github.com/asrato/vinted-sales-helper-extension/releases/latest"
                 target="_blank">Download</a>
+        </div>
+
+        <!-- What's New -->
+        <div id="whats-new" class="whats-new" style="display:none">
+            <div class="whats-new-header" id="whats-new-header">
+                <span class="whats-new-title">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polygon
+                            points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                    What's New
+                    <span class="whats-new-badge" id="whats-new-version-badge"></span>
+                </span>
+                <button class="whats-new-dismiss" id="whats-new-dismiss" title="Dismiss">&times;</button>
+            </div>
+            <div class="whats-new-body">
+                <ul class="whats-new-list" id="whats-new-list"></ul>
+            </div>
         </div>
 
         <!-- Loading -->
