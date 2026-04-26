@@ -255,6 +255,8 @@
     for (var i = 0; i < customFields.length; i++) {
       var cf = customFields[i];
       if (!cf.name || !cf.value) continue;
+
+      // First try standard form elements
       var el = findFormFieldByLabel(cf.name);
       if (el) {
         console.log("[VSH] Filling custom field", cf.name, "=", cf.value);
@@ -264,12 +266,187 @@
           setInputValue(el, cf.value);
         }
       } else {
-        console.log(
-          "[VSH] Could not find form field for custom field:",
-          cf.name,
-        );
+        // Try Vinted-specific picker (brand, condition, etc.)
+        console.log("[VSH] Trying Vinted picker for custom field:", cf.name);
+        fillVintedPicker(cf.name, cf.value);
       }
     }
+  }
+
+  /**
+   * Handle Vinted's custom picker components (brand, condition, category, etc.)
+   * These are not standard form elements — they use clickable containers that open
+   * search dropdowns or radio-like option lists.
+   */
+  function fillVintedPicker(fieldName, value) {
+    var norm = fieldName.toLowerCase().trim();
+    var section = findSectionByLabel(norm);
+    if (!section) {
+      console.log("[VSH] No section found for picker:", fieldName);
+      return;
+    }
+
+    console.log("[VSH] Found section for", fieldName, "— attempting to fill");
+
+    // Strategy 1: Look for radio-like options within the section (condition, size, etc.)
+    // These are typically buttons, divs, or labels with text matching the value
+    var valueNorm = value.toLowerCase().trim();
+    var clickables = section.querySelectorAll(
+      'button, [role="radio"], [role="option"], [role="button"], label, [class*="option"], [class*="radio"], [class*="chip"], [class*="pill"]',
+    );
+    for (var i = 0; i < clickables.length; i++) {
+      var text = (clickables[i].textContent || "").toLowerCase().trim();
+      if (
+        text === valueNorm ||
+        text.indexOf(valueNorm) !== -1 ||
+        valueNorm.indexOf(text) !== -1
+      ) {
+        console.log("[VSH] Clicking option:", clickables[i].textContent.trim());
+        clickables[i].click();
+        return;
+      }
+    }
+
+    // Strategy 2: Click the section to open a dropdown/picker, then search or select
+    var clickTarget = section.querySelector(
+      'button, [role="button"], [class*="select"], [class*="picker"], [class*="dropdown"], [class*="click"], input[readonly]',
+    );
+    if (!clickTarget) {
+      // Try clicking the section itself or any clickable-looking child
+      clickTarget = section.querySelector("div[class]") || section;
+    }
+
+    console.log("[VSH] Clicking to open picker for", fieldName);
+    clickTarget.click();
+
+    // Wait for dropdown/modal to appear, then search/select
+    setTimeout(function () {
+      // Look for a search input that appeared (brand picker opens a search)
+      var searchInput = document.querySelector(
+        '[class*="modal"] input[type="text"], [class*="modal"] input[type="search"], ' +
+          '[class*="dropdown"] input, [class*="overlay"] input, ' +
+          '[role="dialog"] input[type="text"], [role="dialog"] input[type="search"], ' +
+          '[class*="search"] input, [role="listbox"] input, [role="combobox"]',
+      );
+
+      if (searchInput && isVisible(searchInput)) {
+        console.log("[VSH] Found search input in picker, typing:", value);
+        setInputValue(searchInput, value);
+
+        // Wait for search results then click the first match
+        setTimeout(function () {
+          var results = document.querySelectorAll(
+            '[class*="modal"] [role="option"], [class*="modal"] li, ' +
+              '[class*="dropdown"] [role="option"], [class*="dropdown"] li, ' +
+              '[role="listbox"] [role="option"], [role="listbox"] li, ' +
+              '[class*="overlay"] [role="option"], [class*="overlay"] li, ' +
+              '[role="dialog"] [role="option"], [role="dialog"] li',
+          );
+
+          for (var j = 0; j < results.length; j++) {
+            var resText = (results[j].textContent || "").toLowerCase().trim();
+            if (
+              resText === valueNorm ||
+              resText.indexOf(valueNorm) !== -1 ||
+              valueNorm.indexOf(resText) !== -1
+            ) {
+              console.log(
+                "[VSH] Selecting result:",
+                results[j].textContent.trim(),
+              );
+              results[j].click();
+              return;
+            }
+          }
+
+          // If no exact match, click the first result
+          if (results.length > 0) {
+            console.log(
+              "[VSH] No exact match, selecting first result:",
+              results[0].textContent.trim(),
+            );
+            results[0].click();
+          }
+        }, 800);
+      } else {
+        // No search input — look for options in the opened dropdown/modal
+        setTimeout(function () {
+          var options = document.querySelectorAll(
+            '[class*="modal"] [role="option"], [class*="modal"] li, [class*="modal"] button, ' +
+              '[class*="dropdown"] [role="option"], [class*="dropdown"] li, ' +
+              '[role="dialog"] [role="option"], [role="dialog"] li, [role="dialog"] button, ' +
+              '[role="listbox"] [role="option"], [role="listbox"] li',
+          );
+
+          for (var j = 0; j < options.length; j++) {
+            var optText = (options[j].textContent || "").toLowerCase().trim();
+            if (
+              optText === valueNorm ||
+              optText.indexOf(valueNorm) !== -1 ||
+              valueNorm.indexOf(optText) !== -1
+            ) {
+              console.log(
+                "[VSH] Selecting option:",
+                options[j].textContent.trim(),
+              );
+              options[j].click();
+              return;
+            }
+          }
+          console.log(
+            "[VSH] No matching option found for",
+            fieldName,
+            "=",
+            value,
+          );
+        }, 300);
+      }
+    }, 500);
+  }
+
+  /**
+   * Find a form section/container by its label or heading text.
+   * Vinted groups each field in a section with a label/heading.
+   */
+  function findSectionByLabel(labelNorm) {
+    // Check all text elements that could be field labels
+    var candidates = document.querySelectorAll(
+      'label, legend, h3, h4, span[class*="label"], span[class*="title"], ' +
+        'div[class*="label"], p[class*="label"], [class*="field"] > span:first-child, ' +
+        '[class*="form"] span, [class*="section"] span',
+    );
+
+    for (var i = 0; i < candidates.length; i++) {
+      var el = candidates[i];
+      // Only check direct text, not nested element text
+      var directText = getDirectText(el).toLowerCase().trim();
+      if (directText === labelNorm || directText.indexOf(labelNorm) !== -1) {
+        // Walk up to find the containing section/group
+        var section = el.closest(
+          '[class*="field"], [class*="section"], [class*="group"], ' +
+            '[class*="form-item"], [class*="form_item"], [class*="row"], ' +
+            'fieldset, [class*="cell"], [class*="block"]',
+        );
+        if (section && isVisible(section)) return section;
+        // Fallback: use the parent container
+        var parent = el.parentElement;
+        if (parent && isVisible(parent)) return parent;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get direct text content of an element, excluding nested elements.
+   */
+  function getDirectText(el) {
+    var text = "";
+    for (var i = 0; i < el.childNodes.length; i++) {
+      if (el.childNodes[i].nodeType === Node.TEXT_NODE) {
+        text += el.childNodes[i].textContent;
+      }
+    }
+    return text || el.textContent || "";
   }
 
   /**
