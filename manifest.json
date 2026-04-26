@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Vinted Sales Helper",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Automation tools for Vinted Seller.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6ZJRlZmda/PGcCRyfIPBtW8Ynzk+9BZ12i0818k5kqLS/CwykkglGjIX5I90qgGYT+GlYFL1gAMu4JjEXiSQ58Qd5TUup5mSJxJz2KmWV4A2XSRK/Ay5+los9FnZgDvkmVNYVA8O3cT8RYB4TBmi1wmx4i01CsVXi1HufKZhf6WCVRKCq5i9vvg6SFdA0yjBH3uE6Xd89TUqn8J2gEh7GqeGe1n0OXW9tuqm8HBrEsbAyjM3S/oo0FqxB2nAUqrG4aZWV5ibteB/ScgWGIDA1eLOLZJKIAZaJ9o11yOYKQfiwHZ/PgVT/uvLTKOSDzDD0tiaTHJFFSRmTRGEs27dTQIDAQAB",
   "permissions": ["storage", "identity"],

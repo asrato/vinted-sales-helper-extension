@@ -12,6 +12,14 @@
   // ─── Changelog data ───
   var CHANGELOG = [
     {
+      version: "1.1.1",
+      changes: [
+        "Improved custom field auto-fill for brand and condition pickers",
+        "Sequential field filling to avoid picker conflicts",
+        "Better detection of Vinted form sections and labels",
+      ],
+    },
+    {
       version: "1.1.0",
       changes: [
         "Custom fields: auto-fill user-defined fields into Vinted forms",

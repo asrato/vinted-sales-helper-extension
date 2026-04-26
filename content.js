@@ -71,12 +71,6 @@
   // ─── Auto-fill panel (sell page only) ───
 
   function renderToggle() {
-    console.log(
-      "[VSH] renderToggle called. isSellPage:",
-      isSellPage(),
-      "connected:",
-      connected,
-    );
     if (!isSellPage() || !connected) {
       removePanel();
       return;
@@ -88,7 +82,6 @@
       btn.id = TOGGLE_ID;
       btn.addEventListener("click", togglePanel);
       document.body.appendChild(btn);
-      console.log("[VSH] Toggle button created and appended to body");
     }
 
     var count = schedules.length;
@@ -250,27 +243,108 @@
       if (priceEl) setInputValue(priceEl, (schedule.price / 100).toFixed(2));
     }
 
-    // Custom fields — try to find matching form fields on the page
+    // Custom fields — fill sequentially (each picker needs time to open/close)
     var customFields = parseCustomFields(schedule);
-    for (var i = 0; i < customFields.length; i++) {
-      var cf = customFields[i];
-      if (!cf.name || !cf.value) continue;
+    fillCustomFieldsSequentially(customFields, 0);
+  }
 
-      // First try standard form elements
-      var el = findFormFieldByLabel(cf.name);
-      if (el) {
-        console.log("[VSH] Filling custom field", cf.name, "=", cf.value);
-        if (el.tagName === "SELECT") {
-          setSelectValue(el, cf.value);
-        } else {
-          setInputValue(el, cf.value);
-        }
-      } else {
-        // Try Vinted-specific picker (brand, condition, etc.)
-        console.log("[VSH] Trying Vinted picker for custom field:", cf.name);
-        fillVintedPicker(cf.name, cf.value);
-      }
+  function fillCustomFieldsSequentially(fields, index) {
+    if (index >= fields.length) return;
+    var cf = fields[index];
+    if (!cf.name || !cf.value) {
+      fillCustomFieldsSequentially(fields, index + 1);
+      return;
     }
+
+    // Check if this field matches a known picker field (brand, condition, size, etc.)
+    var isKnownPicker = false;
+    var norm = cf.name.toLowerCase().trim();
+    for (var key in FIELD_SYNONYMS) {
+      var synonyms = FIELD_SYNONYMS[key];
+      for (var si = 0; si < synonyms.length; si++) {
+        if (
+          norm === synonyms[si] ||
+          norm.indexOf(synonyms[si]) !== -1 ||
+          synonyms[si].indexOf(norm) !== -1
+        ) {
+          isKnownPicker = true;
+          break;
+        }
+      }
+      if (isKnownPicker) break;
+    }
+
+    if (isKnownPicker) {
+      // Always use Vinted picker for known picker fields
+      fillVintedPicker(cf.name, cf.value, function () {
+        fillCustomFieldsSequentially(fields, index + 1);
+      });
+      return;
+    }
+
+    // For unknown fields, try standard form elements first
+    var el = findFormFieldByLabel(cf.name);
+    if (el && isEditableFormElement(el)) {
+      if (el.tagName === "SELECT") {
+        setSelectValue(el, cf.value);
+      } else {
+        setInputValue(el, cf.value);
+      }
+      fillCustomFieldsSequentially(fields, index + 1);
+    } else {
+      // Fallback to Vinted-specific picker
+      fillVintedPicker(cf.name, cf.value, function () {
+        fillCustomFieldsSequentially(fields, index + 1);
+      });
+    }
+  }
+
+  /**
+   * Check if an element is a genuinely editable form element
+   * (not a hidden React internal input, not readonly, etc.)
+   */
+  function isEditableFormElement(el) {
+    if (!el) return false;
+    if (el.disabled || el.readOnly) return false;
+    if (el.type === "hidden") return false;
+    // Check it's actually visible and has dimensions
+    var rect = el.getBoundingClientRect();
+    if (rect.width < 10 || rect.height < 10) return false;
+    // Check computed visibility
+    var style = window.getComputedStyle(el);
+    if (
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.opacity === "0"
+    )
+      return false;
+    // Must be a writable input type (not just an element with name/id matching)
+    var tag = el.tagName.toLowerCase();
+    if (tag !== "input" && tag !== "textarea" && tag !== "select") return false;
+    // For inputs, check it's a text-like type
+    if (tag === "input") {
+      var textTypes = [
+        "text",
+        "search",
+        "url",
+        "tel",
+        "email",
+        "number",
+        "password",
+        "",
+      ];
+      if (textTypes.indexOf(el.type) === -1) return false;
+      // Reject click-to-open picker inputs (Vinted uses cursor-pointer on these)
+      var cls = el.className || "";
+      if (
+        cls.indexOf("cursor-pointer") !== -1 ||
+        cls.indexOf("u-cursor-pointer") !== -1
+      )
+        return false;
+      // Reject inputs that look like picker triggers (readonly behavior via cursor style)
+      if (style.cursor === "pointer") return false;
+    }
+    return true;
   }
 
   /**
@@ -278,130 +352,305 @@
    * These are not standard form elements — they use clickable containers that open
    * search dropdowns or radio-like option lists.
    */
-  function fillVintedPicker(fieldName, value) {
+
+  // Multi-language synonyms for common field names
+  var FIELD_SYNONYMS = {
+    brand: ["brand", "marca", "marque", "marke", "merk", "marka"],
+    condition: [
+      "condition",
+      "estado",
+      "état",
+      "zustand",
+      "stato",
+      "conditie",
+      "stan",
+      "stav",
+    ],
+    size: ["size", "tamanho", "taille", "größe", "taglia", "maat", "rozmiar"],
+    color: [
+      "color",
+      "colour",
+      "cor",
+      "couleur",
+      "farbe",
+      "colore",
+      "kleur",
+      "kolor",
+    ],
+    category: [
+      "category",
+      "categoria",
+      "catégorie",
+      "kategorie",
+      "categorie",
+      "kategoria",
+    ],
+    material: [
+      "material",
+      "matéria",
+      "matière",
+      "stoff",
+      "materiale",
+      "materiaal",
+      "materiał",
+    ],
+  };
+
+  function getFieldSynonyms(fieldName) {
     var norm = fieldName.toLowerCase().trim();
-    var section = findSectionByLabel(norm);
+    // Check if this field name matches any synonym group
+    for (var key in FIELD_SYNONYMS) {
+      var synonyms = FIELD_SYNONYMS[key];
+      for (var i = 0; i < synonyms.length; i++) {
+        if (
+          norm === synonyms[i] ||
+          norm.indexOf(synonyms[i]) !== -1 ||
+          synonyms[i].indexOf(norm) !== -1
+        ) {
+          return synonyms;
+        }
+      }
+    }
+    // Return just the original name
+    return [norm];
+  }
+
+  function fillVintedPicker(fieldName, value, onDone) {
+    var norm = fieldName.toLowerCase().trim();
+    var valueNorm = value.toLowerCase().trim();
+    var synonyms = getFieldSynonyms(norm);
+
+    // Find the section containing this field — try all synonyms
+    var section = null;
+    for (var s = 0; s < synonyms.length; s++) {
+      section = findSectionByLabel(synonyms[s]);
+      if (section) {
+        break;
+      }
+    }
     if (!section) {
-      console.log("[VSH] No section found for picker:", fieldName);
+      if (onDone) onDone();
       return;
     }
 
-    console.log("[VSH] Found section for", fieldName, "— attempting to fill");
-
-    // Strategy 1: Look for radio-like options within the section (condition, size, etc.)
-    // These are typically buttons, divs, or labels with text matching the value
-    var valueNorm = value.toLowerCase().trim();
-    var clickables = section.querySelectorAll(
-      'button, [role="radio"], [role="option"], [role="button"], label, [class*="option"], [class*="radio"], [class*="chip"], [class*="pill"]',
-    );
-    for (var i = 0; i < clickables.length; i++) {
-      var text = (clickables[i].textContent || "").toLowerCase().trim();
-      if (
-        text === valueNorm ||
-        text.indexOf(valueNorm) !== -1 ||
-        valueNorm.indexOf(text) !== -1
-      ) {
-        console.log("[VSH] Clicking option:", clickables[i].textContent.trim());
-        clickables[i].click();
-        return;
+    // Strategy 1: Look for already-visible clickable options (condition-style inline radio/buttons)
+    var allClickables = section.querySelectorAll("*");
+    for (var i = 0; i < allClickables.length; i++) {
+      var node = allClickables[i];
+      // Skip containers — only look at leaf-ish elements
+      if (node.children.length > 3) continue;
+      var nodeText = (node.textContent || "").toLowerCase().trim();
+      // Must be a reasonably short text to be a button/option label
+      if (nodeText.length > 50) continue;
+      if (nodeText === valueNorm || nodeText.indexOf(valueNorm) !== -1) {
+        // Check if this element or a close ancestor looks clickable
+        var clickableNode = null;
+        var check = node;
+        for (var up = 0; up < 4 && check && check !== section; up++) {
+          var ctag = check.tagName.toLowerCase();
+          var crole = check.getAttribute("role") || "";
+          var hasClick =
+            ctag === "button" ||
+            ctag === "label" ||
+            ctag === "a" ||
+            crole === "radio" ||
+            crole === "option" ||
+            crole === "button" ||
+            crole === "checkbox" ||
+            check.style.cursor === "pointer" ||
+            check.classList
+              .toString()
+              .match(
+                /option|radio|chip|pill|btn|button|select|choice|clickable/i,
+              );
+          if (hasClick) {
+            clickableNode = check;
+            break;
+          }
+          check = check.parentElement;
+        }
+        if (clickableNode) {
+          simulateClick(clickableNode);
+          if (onDone) setTimeout(onDone, 300);
+          return;
+        }
       }
     }
 
-    // Strategy 2: Click the section to open a dropdown/picker, then search or select
-    var clickTarget = section.querySelector(
-      'button, [role="button"], [class*="select"], [class*="picker"], [class*="dropdown"], [class*="click"], input[readonly]',
-    );
-    if (!clickTarget) {
-      // Try clicking the section itself or any clickable-looking child
-      clickTarget = section.querySelector("div[class]") || section;
-    }
+    // Strategy 2: Click into the section to open a picker/dropdown/modal
+    // Try to find the most interactive element
+    var clickTarget =
+      section.querySelector("input[readonly]") ||
+      section.querySelector('input[class*="cursor-pointer"]') ||
+      section.querySelector('[role="button"]') ||
+      section.querySelector('[role="combobox"]') ||
+      section.querySelector('button:not([class*="close"])') ||
+      section.querySelector(
+        '[class*="click"], [class*="select"], [class*="trigger"]',
+      ) ||
+      section.querySelector("input") ||
+      section.querySelector("a") ||
+      section;
 
-    console.log("[VSH] Clicking to open picker for", fieldName);
     clickTarget.click();
 
-    // Wait for dropdown/modal to appear, then search/select
+    // Wait for a picker/dropdown/modal to appear
+    waitForPicker(valueNorm, onDone, 0);
+  }
+
+  /**
+   * After clicking to open a picker, wait for the UI to appear and select the value.
+   * Retries a few times since Vinted's React rendering may be delayed.
+   */
+  function waitForPicker(valueNorm, onDone, attempt) {
+    if (attempt > 5) {
+      if (onDone) onDone();
+      return;
+    }
+
     setTimeout(function () {
-      // Look for a search input that appeared (brand picker opens a search)
-      var searchInput = document.querySelector(
-        '[class*="modal"] input[type="text"], [class*="modal"] input[type="search"], ' +
-          '[class*="dropdown"] input, [class*="overlay"] input, ' +
-          '[role="dialog"] input[type="text"], [role="dialog"] input[type="search"], ' +
-          '[class*="search"] input, [role="listbox"] input, [role="combobox"]',
+      // Look for any search input that appeared anywhere on page (modals, overlays, etc.)
+      var searchInput = findVisibleElement([
+        'input[type="search"]',
+        'input[type="text"][class*="search"]',
+        'input[type="text"][placeholder*="search" i]',
+        'input[type="text"][placeholder*="buscar" i]',
+        'input[type="text"][placeholder*="pesquisar" i]',
+        'input[type="text"][placeholder*="chercher" i]',
+        'input[type="text"][placeholder*="suchen" i]',
+        'input[type="text"][placeholder*="cerca" i]',
+        '[role="combobox"]',
+        '[role="searchbox"]',
+      ]);
+
+      if (searchInput) {
+        setInputValue(searchInput, valueNorm);
+
+        // Wait for results to load
+        setTimeout(function () {
+          selectFromVisibleList(valueNorm, onDone);
+        }, 1200);
+        return;
+      }
+
+      // No search input — look for a visible list of options
+      var found = selectFromVisibleList(valueNorm, onDone);
+      if (!found) {
+        // Retry — the picker might not have rendered yet
+        waitForPicker(valueNorm, onDone, attempt + 1);
+      }
+    }, 400);
+  }
+
+  /**
+   * Look for a visible list of selectable options and click the matching one.
+   * Searches broadly across the whole page for overlays, modals, dropdowns.
+   */
+  function selectFromVisibleList(valueNorm, onDone) {
+    // Broad selectors for any kind of option list
+    var containers = document.querySelectorAll(
+      '[role="dialog"], [role="listbox"], [role="menu"], ' +
+        '[class*="modal"], [class*="overlay"], [class*="dropdown"], ' +
+        '[class*="popup"], [class*="popover"], [class*="drawer"], ' +
+        '[class*="picker"], [class*="flyout"]',
+    );
+
+    // Also check the document body for absolutely positioned lists
+    var allLists = [];
+    containers.forEach(function (c) {
+      if (isVisible(c)) allLists.push(c);
+    });
+
+    // If no explicit container found, search the whole body
+    if (allLists.length === 0) {
+      allLists.push(document.body);
+    }
+
+    for (var c = 0; c < allLists.length; c++) {
+      var container = allLists[c];
+      // Find all items that could be selectable options
+      var items = container.querySelectorAll(
+        '[role="option"], [role="menuitem"], [role="radio"], [role="button"], ' +
+          'li, [class*="option"], [class*="item"], [class*="result"], ' +
+          '[class*="suggestion"], [class*="entry"]',
       );
 
-      if (searchInput && isVisible(searchInput)) {
-        console.log("[VSH] Found search input in picker, typing:", value);
-        setInputValue(searchInput, value);
+      for (var j = 0; j < items.length; j++) {
+        var item = items[j];
+        if (!isVisible(item)) continue;
+        var itemText = (item.textContent || "").toLowerCase().trim();
 
-        // Wait for search results then click the first match
-        setTimeout(function () {
-          var results = document.querySelectorAll(
-            '[class*="modal"] [role="option"], [class*="modal"] li, ' +
-              '[class*="dropdown"] [role="option"], [class*="dropdown"] li, ' +
-              '[role="listbox"] [role="option"], [role="listbox"] li, ' +
-              '[class*="overlay"] [role="option"], [class*="overlay"] li, ' +
-              '[role="dialog"] [role="option"], [role="dialog"] li',
+        // For items with long text (e.g. title + description), check child title elements
+        if (itemText.length > 100) {
+          var titleEl = item.querySelector(
+            '[class*="title"], [class*="heading"], [class*="label"]',
           );
-
-          for (var j = 0; j < results.length; j++) {
-            var resText = (results[j].textContent || "").toLowerCase().trim();
+          if (titleEl) {
+            var titleText = (titleEl.textContent || "").toLowerCase().trim();
             if (
-              resText === valueNorm ||
-              resText.indexOf(valueNorm) !== -1 ||
-              valueNorm.indexOf(resText) !== -1
+              titleText.length <= 100 &&
+              (titleText === valueNorm ||
+                titleText.indexOf(valueNorm) !== -1 ||
+                valueNorm.indexOf(titleText) !== -1)
             ) {
-              console.log(
-                "[VSH] Selecting result:",
-                results[j].textContent.trim(),
-              );
-              results[j].click();
-              return;
+              // Click the most specific interactive element, not the outer container
+              var bestTarget =
+                item.querySelector('[role="button"], [role="option"]') || item;
+              simulateClick(bestTarget);
+              if (onDone) setTimeout(onDone, 500);
+              return true;
             }
           }
+          continue;
+        }
 
-          // If no exact match, click the first result
-          if (results.length > 0) {
-            console.log(
-              "[VSH] No exact match, selecting first result:",
-              results[0].textContent.trim(),
-            );
-            results[0].click();
+        if (
+          itemText === valueNorm ||
+          itemText.indexOf(valueNorm) !== -1 ||
+          valueNorm.indexOf(itemText) !== -1
+        ) {
+          // If item is a container (li, div), prefer clicking a [role="button"] child
+          var bestTarget = item;
+          if (
+            item.tagName.toLowerCase() === "li" ||
+            !item.getAttribute("role")
+          ) {
+            var btn = item.querySelector('[role="button"], [role="option"]');
+            if (btn) bestTarget = btn;
           }
-        }, 800);
-      } else {
-        // No search input — look for options in the opened dropdown/modal
-        setTimeout(function () {
-          var options = document.querySelectorAll(
-            '[class*="modal"] [role="option"], [class*="modal"] li, [class*="modal"] button, ' +
-              '[class*="dropdown"] [role="option"], [class*="dropdown"] li, ' +
-              '[role="dialog"] [role="option"], [role="dialog"] li, [role="dialog"] button, ' +
-              '[role="listbox"] [role="option"], [role="listbox"] li',
-          );
-
-          for (var j = 0; j < options.length; j++) {
-            var optText = (options[j].textContent || "").toLowerCase().trim();
-            if (
-              optText === valueNorm ||
-              optText.indexOf(valueNorm) !== -1 ||
-              valueNorm.indexOf(optText) !== -1
-            ) {
-              console.log(
-                "[VSH] Selecting option:",
-                options[j].textContent.trim(),
-              );
-              options[j].click();
-              return;
-            }
-          }
-          console.log(
-            "[VSH] No matching option found for",
-            fieldName,
-            "=",
-            value,
-          );
-        }, 300);
+          simulateClick(bestTarget);
+          if (onDone) setTimeout(onDone, 500);
+          return true;
+        }
       }
-    }, 500);
+    }
+
+    return false;
+  }
+
+  /**
+   * Simulate a real click with mouse events so React picks it up.
+   */
+  function simulateClick(el) {
+    el.dispatchEvent(
+      new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+    );
+    el.dispatchEvent(
+      new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
+    );
+    el.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true }),
+    );
+  }
+
+  function findVisibleElement(selectors) {
+    for (var i = 0; i < selectors.length; i++) {
+      var els = document.querySelectorAll(selectors[i]);
+      for (var j = 0; j < els.length; j++) {
+        if (isVisible(els[j])) return els[j];
+      }
+    }
+    return null;
   }
 
   /**
@@ -409,31 +658,71 @@
    * Vinted groups each field in a section with a label/heading.
    */
   function findSectionByLabel(labelNorm) {
-    // Check all text elements that could be field labels
-    var candidates = document.querySelectorAll(
-      'label, legend, h3, h4, span[class*="label"], span[class*="title"], ' +
-        'div[class*="label"], p[class*="label"], [class*="field"] > span:first-child, ' +
-        '[class*="form"] span, [class*="section"] span',
-    );
+    // Search ALL elements for matching text — Vinted uses many different elements for labels
+    var allElements = document.querySelectorAll("*");
+    var bestMatch = null;
+    var bestScore = -1;
 
-    for (var i = 0; i < candidates.length; i++) {
-      var el = candidates[i];
-      // Only check direct text, not nested element text
+    for (var i = 0; i < allElements.length; i++) {
+      var el = allElements[i];
+      // Skip script, style, svg, hidden elements
+      var tag = el.tagName.toLowerCase();
+      if (
+        tag === "script" ||
+        tag === "style" ||
+        tag === "svg" ||
+        tag === "path" ||
+        tag === "noscript"
+      )
+        continue;
+      if (!isVisible(el)) continue;
+
+      // Check direct text content
       var directText = getDirectText(el).toLowerCase().trim();
+      if (!directText) continue;
+      if (directText.length > 60) continue;
+
       if (directText === labelNorm || directText.indexOf(labelNorm) !== -1) {
-        // Walk up to find the containing section/group
-        var section = el.closest(
-          '[class*="field"], [class*="section"], [class*="group"], ' +
-            '[class*="form-item"], [class*="form_item"], [class*="row"], ' +
-            'fieldset, [class*="cell"], [class*="block"]',
-        );
-        if (section && isVisible(section)) return section;
-        // Fallback: use the parent container
-        var parent = el.parentElement;
-        if (parent && isVisible(parent)) return parent;
+        // Walk up to find the tightest container that wraps this field
+        var candidate = el.parentElement;
+        for (var d = 0; d < 5 && candidate; d++) {
+          var cTag = candidate.tagName.toLowerCase();
+          var cCls = (candidate.className || "").toLowerCase();
+          var score = 0;
+
+          // Strong preference for <li> — Vinted wraps each form field in an <li>
+          if (cTag === "li") score += 100;
+          // Also good: fieldset, section-like containers
+          if (cTag === "fieldset") score += 80;
+          if (
+            cCls.indexOf("field") !== -1 ||
+            cCls.indexOf("form-item") !== -1 ||
+            cCls.indexOf("form_item") !== -1
+          )
+            score += 70;
+          // Must have at least 2 children (label + input area) and some height
+          if (candidate.children.length >= 2 && candidate.offsetHeight > 30)
+            score += 20;
+          // Penalise containers that are too big (likely the whole form)
+          if (candidate.children.length > 10) score -= 50;
+          if (cTag === "ul" || cTag === "ol" || cTag === "form") score -= 30;
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = candidate;
+          }
+
+          // If we found an <li>, stop — it's the best container
+          if (cTag === "li") break;
+
+          candidate = candidate.parentElement;
+        }
       }
     }
-    return null;
+
+    if (bestMatch) {
+    }
+    return bestMatch;
   }
 
   /**
@@ -676,8 +965,6 @@
       candidates.push({ src: "h1", val: h1.textContent.trim() });
     }
 
-    console.log("[VSH] Title candidates:", JSON.stringify(candidates));
-
     // Pick the best candidate: prefer document.title, then specific selectors, then h1
     // Skip very short values (likely brand names)
     for (var j = 0; j < candidates.length; j++) {
@@ -685,7 +972,6 @@
       // Skip single-word values (likely brand), require at least 3 words or 15 chars
       var wordCount = val.split(/\s+/).length;
       if (wordCount >= 3 || val.length >= 15) {
-        console.log("[VSH] Selected title from", candidates[j].src, ":", val);
         return val;
       }
     }
@@ -755,8 +1041,6 @@
   function checkItemPage() {
     if (!connected || !isItemPage()) return;
 
-    console.log("[VSH] On item page, checking for schedule match...");
-
     // Need both schedules and vinted profile
     Promise.all([
       schedules.length > 0
@@ -788,45 +1072,27 @@
           ),
     ]).then(function () {
       if (!vintedProfile) {
-        console.log("[VSH] No vinted profile configured in settings.");
         return;
       }
       if (schedules.length === 0) {
-        console.log("[VSH] No pending schedules for today.");
         return;
       }
 
       // Wait a bit for Vinted's SPA to render the page content
       setTimeout(function () {
         var pageMemberId = getPageSellerMemberId();
-        console.log(
-          "[VSH] Page member ID:",
-          pageMemberId,
-          "| My profile:",
-          vintedProfile,
-        );
 
         if (!isMyItem(pageMemberId)) {
-          console.log("[VSH] Not my item, skipping.");
           removeListedPanel();
           return;
         }
 
         var pageTitle = getPageItemTitle();
-        console.log("[VSH] Page title:", pageTitle);
 
         matchedSchedule = findMatchingSchedule(pageTitle);
         if (matchedSchedule) {
-          console.log(
-            "[VSH] Matched schedule:",
-            matchedSchedule.title,
-            "(id:",
-            matchedSchedule.id,
-            ")",
-          );
           renderListedPanel();
         } else {
-          console.log("[VSH] No schedule matches this item title.");
           removeListedPanel();
         }
       }, 1500);
@@ -938,10 +1204,8 @@
     // Show toggle immediately (with 0 count) while we load
     renderToggle();
 
-    console.log("[VSH] Fetching schedules...");
     send({ type: "API_GET", path: "/api/schedules/today" })
       .then(function (res) {
-        console.log("[VSH] Schedules API response:", JSON.stringify(res));
         if (res && res.ok && res.data && Array.isArray(res.data.schedules)) {
           schedules = res.data.schedules;
         } else if (res && res.ok && Array.isArray(res.data)) {
@@ -950,7 +1214,6 @@
           schedules = [];
           console.warn("[VSH] Failed to load schedules:", res);
         }
-        console.log("[VSH] Loaded", schedules.length, "schedules");
         renderToggle();
       })
       .catch(function (err) {
@@ -989,16 +1252,6 @@
   chrome.runtime.sendMessage({ type: "GET_AUTH" }, function (res) {
     connected = !!(res && res.token);
     renderIndicator();
-    console.log(
-      "[VSH] Auth check:",
-      connected ? "connected" : "not connected",
-      "| Sell page:",
-      isSellPage(),
-      "| Item page:",
-      isItemPage(),
-      "| URL:",
-      window.location.href,
-    );
     if (connected && isSellPage()) {
       loadSchedules();
     } else if (connected && isItemPage()) {
